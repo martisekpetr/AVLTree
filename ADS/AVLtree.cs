@@ -1,199 +1,255 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
-namespace AVLstromy
+namespace AVLTree
 {
-    /*---------------------------------------------------
-     * Zapoctovy program - implementace AVL stromu
-     * Petr Martisek, kruh 39
-     * LS 2011/12, predmet Algoritmy a datove struktury
-     * cviceni vedene Vladanem Majerechem
-    ---------------------------------------------------*/
-
-    public class AVLstrom
+    public class AVLTree
     {
-        private int klic;
-        private int priznak;    // priznak vyvazenosti, pripustne hodnoty pro kazdy vrchol avl stromu jsou -1,0,1
-        private bool obsazeno;  // umoznuje vytvorit "prazdne" vrcholy
-        private bool hlava;     // specialni oznaceni prvniho vrcholu stromu, do ktereho se neuklada a ma vzdy pouze praveho syna - koren
-        private AVLstrom levy_syn;
-        private AVLstrom pravy_syn;
-        private AVLstrom rodic;
+        private int key;
+        private int balance;    // value is always in {-1,0,1}
+        private bool containsKey;  // umoznuje vytvorit "prazdne" vrcholy
+        private bool isHead;     // special designation of the first node of the tree, which contains no data and has root as an only (right) child
+        private AVLTree leftChild;
+        private AVLTree rightChild;
+        private AVLTree parent;
 
-        public int Klic { get { return klic; } }
-        public AVLstrom Levy_syn { get { return levy_syn; } }
-        public AVLstrom Pravy_syn { get { return pravy_syn; } }
-        public AVLstrom Rodic { get { return rodic; } }
+        public int Key { get { return key; } }
+        public AVLTree LeftChild { get { return leftChild; } }
+        public AVLTree RightChild { get { return rightChild; } }
+        public AVLTree Parent { get { return parent; } }
 
-        public AVLstrom()       //jediny verejny konstruktor, vytvori hlavu stromu
+		/// <summary>
+		/// The only public constructor, creates the "head" node.
+		/// </summary>
+		public AVLTree()       
         {
-            this.klic = Int32.MinValue;
-            this.obsazeno = true;
-            this.hlava = true;
+            this.key = Int32.MinValue; // arbitrary value, never used
+            this.containsKey = true;
+            this.isHead = true;
         }
 
-        private AVLstrom(AVLstrom rodic)    //interni konstruktor pouzity pri vkladani novych vrcholu funkci Insert
+		/// <summary>
+		/// Private constructor, used when creating new nodes by the Insert function. The node is created empty.
+		/// </summary>
+		/// <param name="parent">Reference to the parent of the constructed node.</param>
+		private AVLTree(AVLTree parent)    
         { 
-            this.klic = 0;
-            this.obsazeno = false;
-            this.rodic = rodic;
-            this.hlava = false;
+            this.key = 0;
+            this.containsKey = false; // the node is created empty
+            this.parent = parent;
+            this.isHead = false;
         }
-        
-        static private void RotateLeft(AVLstrom uzel)   //rotace doleva, prepsani priznaku
+
+
+		/// <summary>
+		/// Rotetes the subtree rooted in the given node to the left.
+		/// </summary>
+		/// <param name="node">The root of the subtree to be rotated.</param>
+		static private void RotateLeft(AVLTree node)   
         {
-            AVLstrom pom = uzel.pravy_syn;
-            
-            //prepojeni odkazu
-            if (uzel.rodic != null)
+			// the new local "root"
+            AVLTree tmp = node.rightChild;
+
+			// reconnect the references
+			if (node.parent != null)
             {
-                if (uzel.rodic.klic > uzel.klic)
-                    uzel.rodic.levy_syn = pom;        
+				// find out whether the node was the left or the right child of its parent
+                if (node.parent.key > node.key)
+                    node.parent.leftChild = tmp;        
                 else
-                    uzel.rodic.pravy_syn = pom;
+                    node.parent.rightChild = tmp;
             }
-            pom.rodic = uzel.rodic;
-            uzel.pravy_syn = pom.levy_syn;
-            if (pom.levy_syn != null)
-                pom.levy_syn.rodic = uzel;   
-            pom.levy_syn = uzel;
-            uzel.rodic = pom;
+            tmp.parent = node.parent;
+            node.rightChild = tmp.leftChild;
+            if (tmp.leftChild != null)
+                tmp.leftChild.parent = node;   
+            tmp.leftChild = node;
+            node.parent = tmp;
             
-            // prepsani priznaku, osetreni vsech realnych situaci (jina moznost by byla pamatovat si hloubky a priznaky znovu pocitat)
-            if      ((uzel.priznak == 2) && (pom.priznak == 1))        { uzel.priznak = 0; pom.priznak = 0; }
-            else if ((uzel.priznak == 2) && (pom.priznak == -1))       { uzel.priznak = 1; pom.priznak = -2; }
-            else if ((uzel.priznak == 2) && (pom.priznak == 2))        { uzel.priznak = -1; pom.priznak = 0; }
-            else if ((uzel.priznak == 2) && (pom.priznak == 0))        { uzel.priznak = 1; pom.priznak = -1; }
-            else if ((uzel.priznak == 1) && (pom.priznak == 1))        { uzel.priznak = -1; pom.priznak = -1; }
-            else if ((uzel.priznak == 1) && (pom.priznak == -1))       { uzel.priznak = 0; pom.priznak = -2; }
-            else if ((uzel.priznak == 1) && (pom.priznak == 0))        { uzel.priznak = 0; pom.priznak = -1; }
+            // update balances of affected nodes (all scenarios - instead of remembering the depths and recalculating)
+            if      ((node.balance == 2) && (tmp.balance == 1))        { node.balance = 0; tmp.balance = 0; }
+            else if ((node.balance == 2) && (tmp.balance == -1))       { node.balance = 1; tmp.balance = -2; }
+            else if ((node.balance == 2) && (tmp.balance == 2))        { node.balance = -1; tmp.balance = 0; }
+            else if ((node.balance == 2) && (tmp.balance == 0))        { node.balance = 1; tmp.balance = -1; }
+            else if ((node.balance == 1) && (tmp.balance == 1))        { node.balance = -1; tmp.balance = -1; }
+            else if ((node.balance == 1) && (tmp.balance == -1))       { node.balance = 0; tmp.balance = -2; }
+            else if ((node.balance == 1) && (tmp.balance == 0))        { node.balance = 0; tmp.balance = -1; }
             
         }
 
-        static private void RotateRight(AVLstrom uzel)
+		/// <summary>
+		/// Rotetes the subtree rooted in the given node to the right.
+		/// </summary>
+		/// <param name="node">The root of the subtree to be rotated.</param>
+		static private void RotateRight(AVLTree node)
         {
-            AVLstrom pom = uzel.levy_syn;
-            if (uzel.rodic != null)
+			// the new local "root"
+			AVLTree tmp = node.leftChild;
+
+			// reconnect the references
+			if (node.parent != null)
             {
-                if (uzel.rodic.klic > uzel.klic)
-                    uzel.rodic.levy_syn = pom;
+				// find out whether the node was the left or the right child of its parent
+				if (node.parent.key > node.key)
+                    node.parent.leftChild = tmp;
                 else
-                    uzel.rodic.pravy_syn = pom;
+                    node.parent.rightChild = tmp;
             } 
-            pom.rodic = uzel.rodic;
-            uzel.levy_syn = pom.pravy_syn;
-            if (pom.pravy_syn != null)           
-                pom.pravy_syn.rodic = uzel;
-            pom.pravy_syn = uzel;
-            uzel.rodic = pom;
+            tmp.parent = node.parent;
+            node.leftChild = tmp.rightChild;
+            if (tmp.rightChild != null)           
+                tmp.rightChild.parent = node;
+            tmp.rightChild = node;
+            node.parent = tmp;
 
-            if      ((uzel.priznak == -2) && (pom.priznak == -1))       { uzel.priznak = 0; pom.priznak = 0; }
-            else if ((uzel.priznak == -2) && (pom.priznak == 1))        { uzel.priznak = -1; pom.priznak = 2; }
-            else if ((uzel.priznak == -2) && (pom.priznak == -2))       { uzel.priznak = 1; pom.priznak = 0; }
-            else if ((uzel.priznak == -2) && (pom.priznak == 0))        { uzel.priznak = -1; pom.priznak = +1; }
-            else if ((uzel.priznak == -1) && (pom.priznak == -1))       { uzel.priznak = 1; pom.priznak = 1; }
-            else if ((uzel.priznak == -1) && (pom.priznak == 1))        { uzel.priznak = 0; pom.priznak = 2; }
-            else if ((uzel.priznak == -1) && (pom.priznak == 0))        { uzel.priznak = 0; pom.priznak = 1; }
+			// update balances of affected nodes (all scenarios - instead of remembering the depths and recalculating)
+			if		((node.balance == -2) && (tmp.balance == -1))       { node.balance = 0; tmp.balance = 0; }
+            else if ((node.balance == -2) && (tmp.balance == 1))        { node.balance = -1; tmp.balance = 2; }
+            else if ((node.balance == -2) && (tmp.balance == -2))       { node.balance = 1; tmp.balance = 0; }
+            else if ((node.balance == -2) && (tmp.balance == 0))        { node.balance = -1; tmp.balance = +1; }
+            else if ((node.balance == -1) && (tmp.balance == -1))       { node.balance = 1; tmp.balance = 1; }
+            else if ((node.balance == -1) && (tmp.balance == 1))        { node.balance = 0; tmp.balance = 2; }
+            else if ((node.balance == -1) && (tmp.balance == 0))        { node.balance = 0; tmp.balance = 1; }
             
         }
 
-        public bool Insert(int klic)        //vraci true, pokud hloubka vzrostla
+		/// <summary>
+		/// Inserts the given key into the tree.
+		/// </summary>
+		/// <param name="key"></param>
+		/// <returns>True if the depth of the tree increased.</returns>
+        public bool Insert(int key)        
         {
-            if (this.obsazeno == false)     //"prazdy" vrchol - tedy list, ktery existuje, ale nema dosazenou hodnotu
+			// empty node, simply fill with key
+            if (this.containsKey == false)     
             {
-                this.klic = klic;
-                this.obsazeno = true;
-                return true;                //hloubka vzrostla
+                this.key = key;
+                this.containsKey = true;
+				// depth increased
+                return true;                
             }
-            else        //obsazeny vrchol, hledame v patricnem podstrome
+			// non-empty node, insert to the correct subtree
+            else        
             {
-                switch (klic.CompareTo(this.klic))
+                switch (key.CompareTo(this.key))
                 {
+					// insert to the right subtree
                     case 1:
                         {
-                            if (pravy_syn == null)
-                                pravy_syn = new AVLstrom(this);  //vytvoreni praveho syna s odkazem na aktualni vrchol jako rodice
-                            if (pravy_syn.Insert(klic))         //pokracujeme rekurzivne pravym podstromem, hloubka vzrostla
-                                {
-                                    if (this.hlava == true)
-                                        break; //hlavu neni treba vyvazovat, je to jen pomocna konstrukce
-                                    switch (this.priznak)
-                                    {
-                                        case 1:  //uzel mel vetsi pravy podstrom, v nem pribyl vrchol, tedy priznak je nyni +2 -> je treba rotovat
-                                            {
-                                                this.priznak++;
-                                                if (this.pravy_syn.priznak == 1)  //rotace doleva
-                                                    RotateLeft(this);
-                                                else if (this.pravy_syn.priznak == -1) //dvojrotace
-                                                {
-                                                    RotateRight(this.pravy_syn);
-                                                    RotateLeft(this);
-                                                }           
-                                                //jina situace nastat nemuze, kdyby priznak praveho syna byl 0, insert by vratil false
+							// create right child if nonexistent
+							if (rightChild == null) {
+								rightChild = new AVLTree(this);  
+							}
 
-                                                return false; //po rotovani je strom vyvazen a hloubka se dale nemeni
-                                            }
-                                        case 0:
+							// insert the key to the left subtree
+							bool depthIncreased = rightChild.Insert(key);
+
+							// check balance
+							if (depthIncreased){
+								// head does not need to be balanced
+                                if (this.isHead == true)
+                                    break; 
+
+                                switch (this.balance)
+                                {
+									// right subtree was deeper, now increased by another level -> rotation necessary
+									case 1:  
+                                        {
+                                            this.balance++;
+											
+											// single left rotation
+											if (this.rightChild.balance == 1) {
+												RotateLeft(this);
+											}
+											
+											// double rotation
+                                            else if (this.rightChild.balance == -1) 
                                             {
-                                                this.priznak++; //uzel mel priznak 0 (vyvazeny), vyska praveho podstromu se zvysila, ale vyvazovat neni treba, jen posleme signal o zvyseni dale
-                                                return true;
+                                                RotateRight(this.rightChild);
+                                                RotateLeft(this);
                                             }
-                                        case -1:
-                                            {
-                                                this.priznak++; //uzel mel priznak -1, pridanim vrcholu v pravem podstrome se vyvazil, vyska se nezmenila
-                                                return false;
-                                            }
-                                        default:
-                                            break;
-                                    }
+											// balance of the right child cannot be 0, the depth would not increase in such case
+
+											// tree has been balanced and the depth change does not propagate any further
+											return false; 
+                                        }
+                                    case 0:
+                                        {
+											// right child was balanced, now it will be unbalanced by one (still OK) - propagate the information about depth increase to the upper levels
+                                            this.balance++; 
+                                            return true;
+                                        }
+                                    case -1:
+                                        {
+											// right child was unbalanced to the left, now it will be balanced and the depth will stay the same
+											this.balance++; 
+                                            return false;
+                                        }
+                                    default:
+                                        break;
                                 }
+                            }
                             break;
                         }
+					// insert to the left subtree (mirror situation)
                     case -1:
                         {
-                            if (levy_syn == null) 
-                                levy_syn = new AVLstrom(this);
-                            if (levy_syn.Insert(klic))
+							// create right child if nonexistent
+							if (leftChild == null) 
+                                leftChild = new AVLTree(this);
+
+							// insert the key to the left subtree
+							if (leftChild.Insert(key))
                                 {
-                                    if (this.hlava == true)
+								// head does not need to be balanced
+								if (this.isHead == true)
                                         break;
-                                    switch (this.priznak)
-                                    {
+                                switch (this.balance)
+                                {
+									// left subtree was deeper, now increased by another level -> rotation necessary
+									case -1: 
+                                        {
+                                            this.balance--;
+											
+											// single right rotation
+											if (this.leftChild.balance == -1) {
+												RotateRight(this);
+											}
 
-                                        case -1:  //uzel mel vetsi levy podstrom, v nem pribyl vrchol, tedy priznak je nyni -2 -> je treba rotovat
+											// double rotation
+                                            else if (this.leftChild.balance == 1) 
                                             {
-                                                this.priznak--;
-                                                if (this.levy_syn.priznak == -1)  //rotace doprava
-                                                    RotateRight(this);
-                                                else if (this.levy_syn.priznak == 1) //dvojrotace
-                                                {
-                                                    RotateLeft(this.levy_syn);
-                                                    RotateRight(this);
-                                                }
+                                                RotateLeft(this.leftChild);
+                                                RotateRight(this);
+                                            }
 
-                                                return false; //po vyvazeni se hloubka dale nemeni
-                                            }
-                                        case 0:
-                                            {
-                                                this.priznak--; //uzel mel priznak 0 (vyvazeny), vyska leveho podstromu se zvysila, ale vyvazovat neni treba, jen posleme signal o zvyseni dale
-                                                return true;
-                                            }
-                                        case 1:
-                                            {
-                                                this.priznak--; //uzel mel priznak 1, pridanim vrcholu v levem podstrome se vyvazil, vyska se nezmenila
-                                                return false;
-                                            }
-                                        default:
-                                            break;
-                                    }
-                                    
+											// balance of the left child cannot be 0, the depth would not increase in such case
+
+											// tree has been balanced and the depth change does not propagate any further
+											return false;
+                                        }
+                                    case 0:
+                                        {
+											// left child was balanced, now it will be unbalanced by one (still OK) - propagate the information about depth increase to the upper levels
+											this.balance--; 
+                                            return true;
+                                        }
+                                    case 1:
+                                        {
+											// left child was unbalanced to the right, now it will be balanced and the depth will stay the same
+											this.balance--; 
+                                            return false;
+                                        }
+                                    default:
+                                        break;
                                 }
+                                    
+                            }
                             break;
                         }
+					// key is already in the tree, do nothing
                     case 0:
-                            break; //klic uz ve strome je, nevklada se
+                            break; 
                     default:
                         break;
                 }
@@ -201,103 +257,141 @@ namespace AVLstromy
             return false;
         }
 
-        public bool Delete(int klic) // vraci true, pokud hloubka klesla
+		/// <summary>
+		/// Deletes the given key from the tree, if present.
+		/// </summary>
+		/// <param name="key"></param>
+		/// <returns>True if the depth of the tree decreased.</returns>
+		public bool Delete(int key)
         {
-            if (this.hlava)
+            if (this.isHead)
             {
-                if (this.pravy_syn == null)
-                    return false;
-                else
-                    return this.pravy_syn.Delete(klic);
+				// empty tree
+				if (this.rightChild == null){
+					return false;
+				}
+				// delete recursively from the tree
+				else {
+					return this.rightChild.Delete(key);
+				}
             }
-            switch (klic.CompareTo(this.klic))  //hledame mazany vrchol
+
+			// recursively try to find and delete the key
+            switch (key.CompareTo(this.key))  
             {
+				// look in the right subtree
                 case 1:
                     {
-                        if (pravy_syn == null)
-                            break;      //klic ve strome neni, nemaze se
-                        if (pravy_syn.Delete(klic))     //klic ve strome je, funkce je volana rekurzivne na pravy podstrom
+						// key is not in the tree, do nothing
+						if (rightChild == null) {
+							break;
+						}
+
+						// delete the key from the right subtree
+						bool depthDecreased = rightChild.Delete(key);
+
+						// check balance
+						if (depthDecreased)
+						{
+                            switch (this.balance)
                             {
-                                //hloubka se zmenila (klesla)
-                                switch (this.priznak)
-                                {
-                                    case 1:
+								// the node is being balanced, but the depth decreases -> send the information to the upper levels
+                                case 1:
+                                    {
+                                        balance--;
+                                        return true;
+                                    }
+								// node is being unbalanced to the left, the depth does NOT decrease
+                                case 0:
+                                    {
+                                        balance--;
+                                        return false;
+                                    }
+								// node is already unbalanced to the left, now double unbalanced -> need to rotate
+								case -1:
+                                    {
+                                        balance--;
+                                        switch (leftChild.balance)
                                         {
-                                            priznak--;      //podstrom se vyvazil, ale hloubka je nizsi -> posila se signal vyse
-                                            return true;
-                                        }
-                                    case 0:
-                                        {
-                                            priznak--;
-                                            return false;   // podstrom byl vyvazeny, smazani hodnoty v pravem podstrome nezmenilo hloubku
-                                        }
-                                    case -1:                // novy priznak -2, vyvazujeme
-                                        {
-                                            priznak--;
-                                            switch (levy_syn.priznak)
-                                            {
-                                                case -1:
-                                                    {
-                                                        RotateRight(this);      //rotujeme doprava, podstrom se zmensi
-                                                        return true;        
-                                                    }
-                                                case 0:
-                                                    {
-                                                        RotateRight(this);      //rotujeme doprava, ale podstrom se nezmensuje 
-                                                        return false;
-                                                    }
-                                                case 1:
-                                                    {
-                                                        RotateLeft(this.levy_syn);      // dvojrotace, podstrom se zmensi
-                                                        RotateRight(this);
-                                                        return true;
-                                                    }
-                                                default:
+											// rotate right, depth decreases
+                                            case -1:
+                                                {
+                                                    RotateRight(this);      
+                                                    return true;        
+                                                }
+											// rotate right, depth does NOT decrease
+											case 0:
+                                                {
+                                                    RotateRight(this);      
                                                     return false;
-                                            }
+                                                }
+											// double rotate, depth decreases
+                                            case 1:
+                                                {
+                                                    RotateLeft(this.leftChild);
+                                                    RotateRight(this);
+                                                    return true;
+                                                }
+                                            default:
+                                                return false;
                                         }
-                                    default:
-                                        break;
+                                    }
+                                default:
+                                    break;
                                 }
                             }
                         break;
                     }
+				// look in the right subtree
                 case -1:
                     {
-                        if (levy_syn == null)
-                            break;
-                        if (levy_syn.Delete(klic)) 
+						// key is not in the tree, do nothing
+						if (leftChild == null) {
+							break;
+						}
+
+						// delete the key from the left subtree 
+						bool depthDecreased = leftChild.Delete(key);
+
+						// check balance
+						if (depthDecreased) 
                         {
-                                switch (this.priznak)
+                                switch (this.balance)
                                 {
-                                    case -1:
+									// the node is being balanced, but the depth decreases -> send the information to the upper levels
+									case -1:
                                         {
-                                            priznak++;
+                                            balance++;
                                             return true;
                                         }
-                                    case 0:
+									// node is being unbalanced to the right, the depth does NOT decrease
+									case 0:
                                         {
-                                            priznak++;
+                                            balance++;
                                             return false;
                                         }
-                                    case 1:    
+									// node is already unbalanced to the right, now double unbalanced -> need to rotate
+									case 1:    
                                         {
-                                            priznak++;
-                                            switch (pravy_syn.priznak)
+                                            balance++;
+                                            switch (rightChild.balance)
                                             {
-                                                case 1:
+												// rotate left, depth decreases
+												case 1:
                                                     {
                                                         RotateLeft(this);
                                                         return true;
                                                     }
-                                                case 0:
+												// rotate left, depth does NOT decrease
+												case 0:
                                                     {
                                                         RotateLeft(this);
                                                         return false;
                                                     }
-                                                case -1:
+												// double rotate, depth decreases
+												case -1:
                                                     {
-                                                        RotateRight(this.pravy_syn);
+                                                        RotateRight(this.rightChild);
                                                         RotateLeft(this);
                                                         return true;
                                                     }
@@ -311,58 +405,67 @@ namespace AVLstromy
                         }
                         break;
                     }
-                case 0:         //nasli jsme spravny vrchol, jdeme mazat
-                    {
-                        if ((this.pravy_syn == null) && (this.levy_syn == null))  //vrchol je list, muzeme bez problemu smazat
-                        {
-                            if (this.klic < rodic.klic)     //prepojeni rodice
-                                rodic.levy_syn = null;
-                            else
-                                rodic.pravy_syn = null;
-                            return true;
-                        }
-                        else if (this.pravy_syn == null)        // vrchol ma pouze leveho syna, staci jej prepojit na misto mazaneho vrcholu
-                        {
-                            if (this.klic < rodic.klic)
-                            {
-                                rodic.levy_syn = this.levy_syn;
-                                this.levy_syn.rodic = this.rodic;
-                            }
-                            else
-                            {
-                                rodic.pravy_syn = this.levy_syn;
-                                this.levy_syn.rodic = this.rodic;
-                            }
-                            return true;
-                        }
-                        else if (this.levy_syn == null)         // vrchol ma pouze praveho syna
-                        {
-                            if (this.klic < rodic.klic)
-                            {
-                                rodic.levy_syn = this.pravy_syn;
-                                this.pravy_syn.rodic = this.rodic;
-                            }
-                            else
-                            {
-                                rodic.pravy_syn = this.pravy_syn;
-                                this.pravy_syn.rodic = this.rodic;
-                            }
-                            return true;
-                        }
-                        else                // vrchol ma oba syny, je treba najit nahradu v podstrome a prohodit klice
-                        {
-                            AVLstrom nahrada;
-                            if (this.priznak == -1)         // nahradu bereme ve vetsim podstrome, vyhneme se pripadnemu vyvazovani
-                                nahrada = levy_syn.NajdiMax();    
-                            else
-                                nahrada = pravy_syn.NajdiMin();
 
-                            int nahradniklic = nahrada.klic;        // zapamatujeme si hodnotu nalezeneho substituenta
+				// we have found the key, now we will delete it
+                case 0:         
+                    {
+						// node is leaf, simply delete
+                        if ((this.rightChild == null) && (this.leftChild == null))  
+                        {
+                            if (this.key < parent.key)
+                                parent.leftChild = null;
+                            else
+                                parent.rightChild = null;
+                            return true;
+                        }
+						// node has only a left child, just reconnect it
+                        else if (this.rightChild == null)        
+                        {
+                            if (this.key < parent.key)
+                            {
+                                parent.leftChild = this.leftChild;
+                                this.leftChild.parent = this.parent;
+                            }
+                            else
+                            {
+                                parent.rightChild = this.leftChild;
+                                this.leftChild.parent = this.parent;
+                            }
+                            return true;
+                        }
+						// node has only a right child, just reconnect it
+						else if (this.leftChild == null)         
+                        {
+                            if (this.key < parent.key)
+                            {
+                                parent.leftChild = this.rightChild;
+                                this.rightChild.parent = this.parent;
+                            }
+                            else
+                            {
+                                parent.rightChild = this.rightChild;
+                                this.rightChild.parent = this.parent;
+                            }
+                            return true;
+                        }
+						// node has both children, replace it with a node from the subtree
+                        else                
+                        {
+							int replacementKey;
+							// choose the replacement in the deeper subtree (avoid disbalancing)
+							if (this.balance == -1)         
+                                replacementKey = leftChild.findMaxKey();    
+                            else
+                                replacementKey = rightChild.findMinKey();
+
+							// delete the replacement key (it has surely atmost one child)
+                            bool depthDecreased = this.Delete(replacementKey);   
+
+							// replace the key in this node by the key of the deleted replacement
+                            this.key = replacementKey;               
                             
-                            bool navrat = this.Delete(nahrada.klic);   // nahradni vrchol smazeme (ma jiste nejvyse jednoho syna, tedy nastane jedna ze situaci vyse)
-                            this.klic = nahradniklic;               // mazany klic nahradime klicem smazaneho substituenta
-                            
-                            return navrat;                          //mazani v podstrome mohlo zmenit hloubku, signal zmeny propagujeme vyse
+							// deleting in the subtree might change depth, propagate
+                            return depthDecreased;                          
                         }
                     }
                 default:
@@ -371,93 +474,123 @@ namespace AVLstromy
             return false;
         }
         
-        private AVLstrom NajdiMax()
+		/// <summary>
+		/// Finds the max key in the tree rooted in the given node.
+		/// </summary>
+		/// <returns>Max key in the current tree.</returns>
+        private int findMaxKey()
             {
-                if (pravy_syn == null)
-                    return this;
+                if (rightChild == null)
+                    return this.Key;
                 else
-                    return this.pravy_syn.NajdiMax();
+                    return this.rightChild.findMaxKey();
             }
 
-        private AVLstrom NajdiMin()
+		/// <summary>
+		/// Finds the min key in the tree rooted in the given node.
+		/// </summary>
+		/// <returns>Min key in the current tree.</returns>
+		private int findMinKey()
         {
-            if (levy_syn == null)
-                return this;
+            if (leftChild == null)
+                return this.Key;
             else
-                return this.levy_syn.NajdiMin();
+                return this.leftChild.findMinKey();
         }
 
-        public string Vypis()       //funkce vraci vypis ve formatu string, kde patra stromu jsou ve sloupeccich a synove vpravo od otce, pravy syn prvni
+		/// <summary>
+		/// Pretty-prints the tree to the string. Levels of the tree are in separate columns; children of a node are to the right, right child is first. Works nicely for keys lower than 1000000.
+		/// </summary>
+		/// <returns>String representation of the tree.</returns>
+        public string Print()
         {
-            StringBuilder vypis = new StringBuilder();
-            AVLstrom vrchol;
-            if (this.hlava)
-                vrchol = this.pravy_syn;
+            StringBuilder buffer = new StringBuilder();
+            AVLTree node;
+
+			// move to the actual root
+            if (this.isHead)
+                node = this.rightChild;
             else
-                vrchol = this;
-            if (vrchol == null)
-            {
+                node = this;
+
+            if (node == null){
                 return "";
             }
-            CyklusVypisu(vrchol, ref vypis, 0); //rekurzivni funkce projde strom a do stringbuilderu dosadi klice a priznaky vrcholu
 
-            vypis.Append('\n');
-            return vypis.ToString();
+            PrintRecursively(node, buffer, 0); 
+
+            buffer.Append('\n');
+            return buffer.ToString();
         }
 
-        private void CyklusVypisu(AVLstrom vrchol, ref StringBuilder vypis, int hloubka)
+		/// <summary>
+		/// Recursively walks the tree and appends keys and balance indicators of individual nodes to the buffer.
+		/// </summary>
+		/// <param name="node">Current node.</param>
+		/// <param name="buffer">The buffer to write to.</param>
+		/// <param name="depth">Current depth.</param>
+        private void PrintRecursively(AVLTree node, StringBuilder buffer, int depth)
         {
-            char priznak;
-            switch (vrchol.priznak)     //reprazentace priznaku +,- nebo °
+			// represent the balance as +,- or °
+			char balanceIndicator;
+            switch (node.balance)     
             {
-                case 0: { priznak = '°'; break; }
-                case -1: { priznak = '-'; break; }
-                case 1: { priznak = '+'; break; }
-                default: { priznak = ' '; break; }
+                case 0: { balanceIndicator = '°'; break; }
+                case -1: { balanceIndicator = '-'; break; }
+                case 1: { balanceIndicator = '+'; break; }
+                default: { balanceIndicator = ' '; break; }
             }
 
-            vypis.Append(vrchol.klic.ToString() + priznak + "\t");      //spravny format se zachova pro klice < 1000000
+			// print key, balance and indent
+			buffer.Append(node.key.ToString() + balanceIndicator + "\t");      
 
-            if (vrchol.pravy_syn != null)
-                CyklusVypisu(vrchol.pravy_syn, ref vypis, hloubka + 1);
-            if (vrchol.levy_syn != null)
+			if (node.rightChild != null)
+                PrintRecursively(node.rightChild, buffer, depth + 1);
+            if (node.leftChild != null)
             {
-                vypis.Append("\n");
-                vypis.Append('\t', hloubka + 1);        //levy syn se zarovna pod praveho
-                CyklusVypisu(vrchol.levy_syn, ref vypis, hloubka + 1);
+				// left child is printed under the right child
+                buffer.Append("\n");
+                buffer.Append('\t', depth + 1); // indent to get under the right child       
+                PrintRecursively(node.leftChild, buffer, depth + 1);
             }
         }
        
-        public bool Find(int klic)  //vraci true, pokud je klic ve strome
-        {
-            if (this == null)
-                 return false;      // klic ve strome neni
 
-            if (this.hlava)
+		/// <summary>
+		/// Attempts to find the key in the tree.
+		/// </summary>
+		/// <param name="key">The key to be found.</param>
+		/// <returns>True if the key is in the tree, false otherwise.</returns>
+        public bool Find(int key)
+        {
+			// head of the tree
+            if (this.isHead)
             {
-                if (this.pravy_syn == null)
+                if (this.rightChild == null)
                     return false;
                 else
-                    return this.pravy_syn.Find(klic);
+                    return this.rightChild.Find(key);
             }
+
+			// actual node of the tree
             else
             {
-                switch (klic.CompareTo(this.klic))
-                {
-                    case 0: return true;            //nasli jsme klic
-                    case 1:
+                switch (key.CompareTo(this.key))
+                {			
+                    case 0: return true;            // key was found
+					case 1:
                         {
-                            if (this.pravy_syn == null)
+                            if (this.rightChild == null)
                                 return false;
                             else
-                                return this.pravy_syn.Find(klic);
+                                return this.rightChild.Find(key);
                         }
                     case -1:
                         {
-                            if (this.levy_syn == null)
+                            if (this.leftChild == null)
                                 return false;
                             else
-                                return this.levy_syn.Find(klic);
+                                return this.leftChild.Find(key);
                         }
                     default: return false;
                 }

@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using AVLstromy;
+
 
 namespace ConsoleApplication1
 {
@@ -10,17 +7,20 @@ namespace ConsoleApplication1
     {
         static void Main(string[] args)
         {
-            AVLstrom strom = new AVLstrom();
-            Help();
-            string line = Console.ReadLine();
+			AVLTree.AVLTree tree = new AVLTree.AVLTree();
+
+			DisplayHelp();
+
+			string line = Console.ReadLine();
             while (line != "q")
             {
                 string[] param = line.Split(' ');
-                if (param.Count() == 2)
+                if (param.Length == 2)
                 {
                     int klic = 0;
-                    if (!Int32.TryParse(param[1], out klic))    //zadani v nespravnem formatu je ignorovano
+					if (!Int32.TryParse(param[1], out klic))    
                     {
+						// input in wrong format is ignored
                         line = Console.ReadLine();
                         continue;
                     }
@@ -28,17 +28,17 @@ namespace ConsoleApplication1
                     {
                         case "i": 
                             {
-                                strom.Insert(klic);
+                                tree.Insert(klic);
                                 break;
                             }
                         case "d":
                             {
-                                strom.Delete(klic);
+                                tree.Delete(klic);
                                 break;
                             }
                         case "f":
                             {
-                                if (strom.Find(klic))
+                                if (tree.Find(klic))
                                     Console.WriteLine("Klic je ve strome.");
                                 else
                                     Console.WriteLine("Nenalezeno.");
@@ -48,15 +48,15 @@ namespace ConsoleApplication1
                             break;
                     }
                 }
-                else if (param.Count() == 1)
+                else if (param.Length == 1)
                 {
-                    if (param[0] == "v")
+                    if (param[0] == "p")
                     {
-                        Console.Write(strom.Vypis());
+                        Console.Write(tree.Print());
                     }
                     if (param[0] == "h")
                     {
-                        Help();
+                        DisplayHelp();
                     }
                     
                 }
@@ -64,15 +64,18 @@ namespace ConsoleApplication1
             }
         }
 
-        static public void Help()
+		/// <summary>
+		/// Prints the available commands.
+		/// </summary>
+        static public void DisplayHelp()
         {
-            Console.WriteLine("Prikazy: ");
-            Console.WriteLine("* i [x] - pridani klice x do stromu, napr 'i 5'");
-            Console.WriteLine("* d [x] - smazani klice x ze stromu, napr 'd 5'");
-            Console.WriteLine("* f [x] - dotaz na pritomnost klice x ve strome");
-            Console.WriteLine("* v - vypis struktury stromu");
-            Console.WriteLine("* q - ukonceni programu");
-            Console.WriteLine("* h - napoveda");
+            Console.WriteLine("Commands: ");
+            Console.WriteLine("* i [x] - insert key x to the tree, e.g. 'i 5'");
+            Console.WriteLine("* d [x] - delete key x from the tree, e.g. 'd 5'");
+            Console.WriteLine("* f [x] - find the key in the tree (Y/N answer)");
+            Console.WriteLine("* p - print out the tree");
+            Console.WriteLine("* q - quit");
+            Console.WriteLine("* h - help");
             Console.WriteLine("-----------------------------------");
         }
     }
